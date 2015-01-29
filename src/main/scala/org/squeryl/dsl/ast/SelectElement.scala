@@ -299,7 +299,7 @@ class ExportedSelectElement
 
   val expression = new ExpressionNode {
 
-    def doWrite(sw: StatementWriter) =
+    def doWrite(sw: StatementWriter) = {
     sw.write(sw.quoteName(alias))
   }
 

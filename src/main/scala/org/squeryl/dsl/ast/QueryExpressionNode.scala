@@ -19,12 +19,30 @@ import org.squeryl.internals._
 import org.squeryl.dsl.{QueryYield, AbstractQuery}
 import scala.collection.mutable.ListBuffer
 
-class QueryExpressionNode[R](_query: AbstractQuery[R],
+class QueryExpressionNode[R](val _query: AbstractQuery[R],
                              _queryYield:QueryYield[R],
                              val subQueries: Iterable[QueryableExpressionNode],
                              val views: Iterable[ViewExpressionNode[_]])
   extends QueryExpressionElements
     with QueryableExpressionNode {
+
+  private [squeryl] def cteRoot: Option[QueryExpressionElements] = {
+    def loop(current: Option[ExpressionNode]): Option[QueryExpressionElements] = {
+      current.flatMap { c =>
+        c.isInstanceOf[QueryExpressionNode[_]] match {
+          case true => c.asInstanceOf[QueryExpressionNode[_]]
+            .commonTableExpressions
+            .find(sameRoot_?)
+            .orElse(loop(c.parent))
+          case false => loop(c.parent)
+        }
+      }
+    }
+    loop(parent)
+  }
+
+  private def sameRoot_?(e: QueryExpressionNode[_]) =
+    _query.root.isDefined && _query.root == e._query.root
 
   def tableExpressions: Iterable[QueryableExpressionNode] = 
     List(views.filter(v => ! v.inhibited),
@@ -32,8 +50,16 @@ class QueryExpressionNode[R](_query: AbstractQuery[R],
 
   def isJoinForm = _queryYield.joinExpressions != Nil
 
-  val (whereClause, havingClause, groupByClause, orderByClause) =
+  val (whereClause, havingClause, groupByClause, orderByClause, ctes) =
      _queryYield.queryElements
+
+  val commonTableExpressions = ctes.map { q =>
+    if (! q.ast.isInstanceOf[QueryExpressionNode[_]]) {
+      Utils.throwError("A common table expression AST must be a QueryExpressionNode, not a " +
+        q.getClass.getSimpleName)
+    }
+    q.ast.asInstanceOf[QueryExpressionNode[_]]
+  }
 
   private val unionClauses =
       _query.unions map (kindAndQ => new UnionExpressionNode(kindAndQ._1, kindAndQ._2.ast))
@@ -80,6 +106,7 @@ class QueryExpressionNode[R](_query: AbstractQuery[R],
   override def children =
     List(
       selectList.toList,
+      commonTableExpressions.toList,
       views.toList,
       subQueries.toList,
       tableExpressions.filter(e=> e.joinExpression != None).map(_.joinExpression.get).toList,  
@@ -139,39 +166,49 @@ class QueryExpressionNode[R](_query: AbstractQuery[R],
   def selectList: Iterable[SelectElement] = _selectList
 
   def doWrite(sw: StatementWriter) = {
-    val isNotRoot = parent != None
-    val isContainedInUnion = parent map (_.isInstanceOf[UnionExpressionNode]) getOrElse (false)
+    def writeCompleteQuery = {
+      val isNotRoot = parent != None
+      val isContainedInUnion = parent map (_.isInstanceOf[UnionExpressionNode]) getOrElse (false)
 
-    if((isNotRoot && ! isContainedInUnion) || hasUnionQueryOptions) {
-      sw.write("(")
-      sw.indent(1)
+      if((isNotRoot && ! isContainedInUnion) || hasUnionQueryOptions) {
+        sw.write("(")
+        sw.indent(1)
+      }
+
+      if (! unionClauses.isEmpty) {
+        sw.write("(")
+        sw.nextLine
+        sw.indent(1)
+      }
+
+      sw.databaseAdapter.writeQuery(this, sw)
+
+      if (! unionClauses.isEmpty) {
+        sw.unindent(1)
+        sw.write(")")
+        sw.nextLine
+      }
+
+      unionClauses.foreach { u =>
+        u.write(sw)
+      }
+
+      if((isNotRoot && ! isContainedInUnion) || hasUnionQueryOptions) {
+        sw.unindent(1)
+        sw.write(") ")
+      }
+
+      if (hasUnionQueryOptions) {
+        sw.databaseAdapter.writeUnionQueryOptions(this, sw)
+      }
     }
 
-    if (! unionClauses.isEmpty) {
-      sw.write("(")
-      sw.nextLine
-      sw.indent(1)
-    }
-
-    sw.databaseAdapter.writeQuery(this, sw)
-
-    if (! unionClauses.isEmpty) {
-      sw.unindent(1)
-      sw.write(")")
-      sw.nextLine
-    }
-
-    unionClauses.foreach { u =>
-      u.write(sw)
-    }
-
-    if((isNotRoot && ! isContainedInUnion) || hasUnionQueryOptions) {
-      sw.unindent(1)
-      sw.write(") ")
-    }
-
-    if (hasUnionQueryOptions) {
-      sw.databaseAdapter.writeUnionQueryOptions(this, sw)
+    if (sw.databaseAdapter.supportsCommonTableExpressions) {
+      cteRoot.map { r =>
+        sw.databaseAdapter.writeCteReference(sw, r)
+      }.getOrElse(writeCompleteQuery)
+    } else {
+      writeCompleteQuery
     }
   }
 }

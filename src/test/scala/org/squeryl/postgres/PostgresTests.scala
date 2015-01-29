@@ -20,7 +20,9 @@ trait Postgresql_Connection extends DBConnector{
           config.getProp("postgresql.password")
         )
         c.setAutoCommit(false)
-        Session.create(c, new PostgreSqlAdapter)
+        val s = Session.create(c, new PostgreSqlAdapter)
+        s.setLogger(println)
+        s
       })
     }else{
       None
@@ -44,6 +46,8 @@ class Postgresql_LeftJoinTest extends LeftJoinTest with Postgresql_Connection
 class Postgresql_ConnectionClosing extends ConnectionClosingTest with Postgresql_Connection {
   def dbSpecificSelectNow: String = "select now()"
 }
+
+class Postgresql_Abbrev extends schooldb.Abbrev with Postgresql_Connection
 
 
 class Postgresql_LogicalBooleanObjTests extends LogicalBooleanObjTests with Postgresql_Connection
