@@ -2,13 +2,13 @@ package org.squeryl.test.demo
 
 /*******************************************************************************
  * Copyright 2010 Maxime Lévesque
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,6 +18,7 @@ package org.squeryl.test.demo
 import org.squeryl.test.PrimitiveTypeModeForTests._
 import org.squeryl.{Query, Session, KeyedEntity, Schema}
 import org.squeryl.dsl.GroupWithMeasures
+import org.squeryl.dsl.ast.LogicalBoolean
 import org.squeryl.framework.{DBConnector, RunTestsInsideTransaction, SchemaTester}
 
 // The root object of the schema. Inheriting KeyedEntity[T] is not mandatory
@@ -47,7 +48,7 @@ class Song(val title: String, val artistId: Long, val filePath: Option[String], 
 
   // the schema can be imported in the scope, to lighten the syntax :
   import MusicDb._
-  
+
   // An alternative (shorter) syntax for single table queries :
   def artist = artists.where(a => a.id === artistId).single
 
@@ -61,7 +62,7 @@ class Playlist(val name: String, val path: String) extends MusicDbObject {
 
   import MusicDb._
 
-  // a two table join : 
+  // a two table join :
   def songsInPlaylistOrder =
     from(playlistElements, songs)((ple, s) =>
       where(ple.playlistId === id and ple.songId === s.id)
@@ -79,8 +80,8 @@ class Playlist(val name: String, val path: String) extends MusicDbObject {
       from(playlistElements)(ple =>
         where(ple.playlistId === id)
         compute(nvl(max(ple.songNumber), 0))
-      )    
-    
+      )
+
     playlistElements.insert(new PlaylistElement(nextSongNumber, id, s.id))
   }
 
@@ -183,14 +184,14 @@ abstract class KickTheTires extends SchemaTester with RunTestsInsideTransaction 
     funkAndLatinJazz.addSong(freedomSound)
 
     val decadeOf1960 = playlists.insert(new Playlist("1960s", "c:/myPlayLists/funkAndLatinJazz"))
-    
+
     decadeOf1960.addSong(watermelonMan)
     decadeOf1960.addSong(funkifyYouLife)
     decadeOf1960.addSong(goodOldFunkyMusic)
 
     //Session.currentSession.setLogger(m => println(m))
 
-    // Nesting a query in a where clause : 
+    // Nesting a query in a where clause :
     val songsFromThe60sInFunkAndLatinJazzPlaylist =
       from(songs)(s=>
         where(s.id in from(funkAndLatinJazz.songsInPlaylistOrder)(s2 => select(s2.id)))
@@ -208,7 +209,7 @@ abstract class KickTheTires extends SchemaTester with RunTestsInsideTransaction 
         where(s.id === 123)
         select(s)
       )
-    
+
     // Left Outer Join :
     var ratingsForAllSongs =
       join(songs, ratings.leftOuter)((s,r) =>
@@ -226,10 +227,28 @@ abstract class KickTheTires extends SchemaTester with RunTestsInsideTransaction 
         select(s, &(s.year gte 1980))
       )
 
-    assert(modernMusic.toList != null)
+    assert(modernMusic.toList.length == 5)
 
     for ((s,b) <- modernMusic) {
       println(s"${s.title}: isModern = $b")
+    }
+
+    def pred(a: Artist): LogicalBoolean =
+      exists(
+        from(songs)(s =>
+          where(a.id === s.artistId and (s.year gte 1980))
+          select(&(1))
+      ))
+
+    val musicalPredicate =
+      from(artists)(a =>
+        select(a, &(pred(a)))
+      )
+
+    assert(musicalPredicate.toList.length == 4)
+
+    for ((a,b) <- musicalPredicate) {
+      println(s"$a: isPredicated = $b")
     }
 
 
@@ -241,7 +260,7 @@ abstract class KickTheTires extends SchemaTester with RunTestsInsideTransaction 
 
     for(s <- funkAndLatinJazz.songsOf(herbyHancock.id))
       println("herby " + s.title)
-    
+
     val c = funkAndLatinJazz.removeSongOfArtist(herbyHancock)
 
     assert(c == 1, "expected 1, got " + c + "playList.id:" + funkAndLatinJazz.id + ", artist.id:" + herbyHancock.id)
@@ -249,11 +268,64 @@ abstract class KickTheTires extends SchemaTester with RunTestsInsideTransaction 
 
     funkAndLatinJazz._songCountByArtistId.toList
 
-    
+
     val q = funkAndLatinJazz.songCountForAllArtists
 
     //println(q.dumpAst)
-    
+
     q.toList
+  }
+
+  test("more predicate expressions") {
+
+    def musicalPredicate(p: Artist => LogicalBoolean) =
+      from(artists)(a =>
+        select(a, &(p(a)), a.name)
+      )
+
+    def pred1(a: Artist): LogicalBoolean = exists(
+      from(songs)(s =>
+        where(a.id === s.artistId and (s.year gte 1980))
+        select(&(1))
+      )
+    )
+
+    def pred2(a: Artist): LogicalBoolean =  exists(
+      join(songs, ratings.leftOuter)((s,r) =>
+        where(a.id === s.artistId and (r.get.appreciationScore lte 0))
+        select(&(1))
+        on(s.id === r.get.songId)
+      )
+    )
+
+    def pred3(a: Artist): LogicalBoolean =  notExists(
+      join(artists, songs, ratings.leftOuter)((ar,s,r) =>
+        where(ar.id === s.artistId and (r.get.appreciationScore lte 0))
+        select(&(1))
+        on(ar.id === s.artistId, s.id === r.get.songId)
+      )
+    )
+
+    def predU(a: Artist): LogicalBoolean = (
+      pred1(a)
+        and (a.name === "The Meters" or a.name === "The nonexistents")
+        and pred2(a)
+        and pred3(a)
+    )
+
+     List(pred1 _, pred2 _, pred3 _, predU _).foreach(p =>
+       assert(musicalPredicate(p).toList.length == 4)
+     )
+
+    val combined =
+      musicalPredicate(pred1) union musicalPredicate(pred2)
+
+    assert(combined.toList.length == 6)
+
+    def musicalPredicates(p1: Artist => LogicalBoolean, p2: Artist => LogicalBoolean) =
+      from(artists)(a =>
+        where(p2(a))
+        select(a, &(p1(a)), a.name)
+      )
   }
 }
