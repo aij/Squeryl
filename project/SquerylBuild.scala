@@ -19,11 +19,12 @@ object SquerylBuild extends Build {
       version := "0.9.6-ccap27",
       javacOptions := Seq("-source", "1.6", "-target", "1.6"),
       /*
-  	  version <<= version { v => //only release *if* -Drelease=true is passed to JVM
+      //only release *if* -Drelease=true is passed to JVM
+      version <<= version { v =>
   	  	val release = Option(System.getProperty("release")) == Some("true")
   	  	if(release)
-  	  		v 
-  	  	else {	
+  	  		v
+  	  	else {
   	  		val suffix = Option(System.getProperty("suffix"))
   	  		val i = (v.indexOf('-'), v.length) match {
   	  		  case (x, l) if x < 0 => l
@@ -36,10 +37,10 @@ object SquerylBuild extends Build {
       */
       parallelExecution := false,
       publishMavenStyle := true,
-      scalaVersion := "2.11.2",
-      crossScalaVersions := Seq("2.11.2", "2.10.3"),
+      scalaVersion := "2.11.6",
+      crossScalaVersions := Seq("2.11.6", "2.10.5"),
       scalacOptions <++= scalaVersion map { sv =>
-        Seq("-unchecked", "-deprecation") ++ (
+      Seq("-unchecked", "-deprecation") ++ (
           if(sv.startsWith("2.11"))
             Seq("-feature",
             "-language:implicitConversions",
@@ -53,8 +54,8 @@ object SquerylBuild extends Build {
       licenses := Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt")),
       homepage := Some(url("http://squeryl.org")),
       pomExtra := (<scm>
-                     <url>git@github.com:max-l/squeryl.git</url>
-                     <connection>scm:git:git@github.com:max-l/squeryl.git</connection>
+                     <url>git@github.com:squeryl/squeryl.git</url>
+                     <connection>scm:git:git@github.com:squeryl/squeryl.git</connection>
                    </scm>
                    <developers>
                      <developer>
@@ -68,6 +69,17 @@ object SquerylBuild extends Build {
                        <url>https://github.com/davewhittaker</url>
                      </developer>
                    </developers>),
+      credentials ~= { c =>
+        (Option(System.getenv().get("SONATYPE_USERNAME")), Option(System.getenv().get("SONATYPE_PASSWORD"))) match {
+          case (Some(username), Some(password)) =>
+            c :+ Credentials(
+              "Sonatype Nexus Repository Manager",
+              "oss.sonatype.org",
+              username,
+              password)
+          case _ => c
+        }
+      },
       publishTo <<= version { v => //add credentials to ~/.sbt/sonatype.sbt
         /*
         val nexus = "https://oss.sonatype.org/"
@@ -81,19 +93,14 @@ object SquerylBuild extends Build {
       credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
       publishArtifact in Test := false,
       pomIncludeRepository := { _ => false },
-      //below is for lsync, run "ls-write-version", commit to github, then run "lsync" 
-      /*
-			  (LsKeys.tags in LsKeys.lsync) := Seq("sql", "orm", "query", "database", "db", "dsl"),
-			  (LsKeys.docsUrl in LsKeys.lsync) := Some(new URL("http://squeryl.org/api/")),
-			  (LsKeys.ghUser in LsKeys.lsync) := Some("max-l"),
-        */
       libraryDependencies ++= Seq(
         "cglib" % "cglib-nodep" % "2.2",
-        "com.h2database" % "h2" % "1.2.127" % "provided",
-        "mysql" % "mysql-connector-java" % "5.1.10" % "provided",
-        "postgresql" % "postgresql" % "8.4-701.jdbc4" % "provided",
+        "com.h2database" % "h2" % "1.4.187" % "provided",
+        "mysql" % "mysql-connector-java" % "5.1.35" % "provided",
+        "postgresql" % "postgresql" % "9.1-901.jdbc4" % "provided",
         "net.sourceforge.jtds" % "jtds" % "1.2.4" % "provided",
-        "org.apache.derby" % "derby" % "10.7.1.1" % "provided",
+        "org.apache.derby" % "derby" % "10.11.1.1" % "provided",
+        "org.xerial" % "sqlite-jdbc" % "3.8.7" % "test",
         "junit" % "junit" % "4.8.2" % "provided"
       ),
       libraryDependencies <++= scalaVersion { sv =>
