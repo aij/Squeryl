@@ -220,6 +220,19 @@ abstract class KickTheTires extends SchemaTester with RunTestsInsideTransaction 
 //      println(sr._1.title + " rating is " + sr._2.map(r => r.appreciationScore.toString).getOrElse("not rated"))
 
 
+    // Boolean expressions :
+    val modernMusic =
+      from(songs)(s =>
+        select(s, &(s.year gte 1980))
+      )
+
+    assert(modernMusic.toList != null)
+
+    for ((s,b) <- modernMusic) {
+      println(s"${s.title}: isModern = $b")
+    }
+
+
     update(songs)(s =>
       where(s.title === "Watermelon Man")
       set(s.title := "The Watermelon Man",
