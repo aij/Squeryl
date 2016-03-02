@@ -41,11 +41,18 @@ object FieldReferenceLinker {
       r
     }
     else {
-      val r = _yieldValues.get.remove(0).asInstanceOf[T]
-      if (_yieldValues.get.size == 0) {
-        _yieldValues.remove()
+      val values = _yieldValues.get
+      if (values == null) {
+        // This can happen when invoked for nonexistent result fields. Eg from(subquery)(_ => compute(count))
+        // If the missing result is actually needed later, the NPE will happen at that point.
+        null.asInstanceOf[T]
+      } else {
+        val r =  values.remove(0).asInstanceOf[T]
+        if (_yieldValues.get.size == 0) {
+         _yieldValues.remove()
+        }
+        r
       }
-      r
     }
   }
 
