@@ -221,35 +221,18 @@ abstract class KickTheTires extends SchemaTester with RunTestsInsideTransaction 
 //      println(sr._1.title + " rating is " + sr._2.map(r => r.appreciationScore.toString).getOrElse("not rated"))
 
 
-    // Boolean expressions :
-    val modernMusic =
+    // Shared subquery with root query :
+    val commonSubquery =
       from(songs)(s =>
-        select(s, &(s.year gte 1980))
+        select(s, &(true))
       )
 
-    assert(modernMusic.toList.length == 5)
-
-    for ((s,b) <- modernMusic) {
-      println(s"${s.title}: isModern = $b")
+    def compareCounts[A](q: Query[A]): Unit = {
+      val qc = from(q)(_ => compute(count))
+      assert(qc.toList.head.measures == q.toList.length)
     }
 
-    def pred(a: Artist): LogicalBoolean =
-      exists(
-        from(songs)(s =>
-          where(a.id === s.artistId and (s.year gte 1980))
-          select(&(1))
-      ))
-
-    val musicalPredicate =
-      from(artists)(a =>
-        select(a, &(pred(a)))
-      )
-
-    assert(musicalPredicate.toList.length == 4)
-
-    for ((a,b) <- musicalPredicate) {
-      println(s"$a: isPredicated = $b")
-    }
+    compareCounts(commonSubquery);
 
 
     update(songs)(s =>
@@ -274,73 +257,5 @@ abstract class KickTheTires extends SchemaTester with RunTestsInsideTransaction 
     //println(q.dumpAst)
 
     q.toList
-  }
-
-  test("more predicate expressions") {
-
-    def musicalPredicate(p: Artist => LogicalBoolean) =
-      from(artists)(a =>
-        select(a, &(p(a)), a.name)
-      )
-
-    def pred1(a: Artist): LogicalBoolean = exists(
-      from(songs)(s =>
-        where(a.id === s.artistId and (s.year gte 1980))
-        select(&(1))
-      )
-    )
-
-    def pred2(a: Artist): LogicalBoolean =  exists(
-      join(songs, ratings.leftOuter)((s,r) =>
-        where(a.id === s.artistId and (r.get.appreciationScore lte 0))
-        select(&(1))
-        on(s.id === r.get.songId)
-      )
-    )
-
-    def pred3(a: Artist): LogicalBoolean =  notExists(
-      join(artists, songs, ratings.leftOuter)((ar,s,r) =>
-        where(ar.id === s.artistId and (r.get.appreciationScore lte 0))
-        select(&(1))
-        on(ar.id === s.artistId, s.id === r.get.songId)
-      )
-    )
-
-    def predU(a: Artist): LogicalBoolean = (
-      pred1(a)
-        and (a.name === "The Meters" or a.name === "The nonexistents")
-        and pred2(a)
-        and pred3(a)
-    )
-
-     List(pred1 _, pred2 _, pred3 _, predU _).foreach(p =>
-       assert(musicalPredicate(p).toList.length == 4)
-     )
-
-    val combined =
-      musicalPredicate(pred1) union musicalPredicate(pred2)
-
-    assert(combined.toList.length == 6)
-
-    def joinPredicates(p1: Artist => LogicalBoolean, p2: Artist => LogicalBoolean) =
-      join(artists, songs.leftOuter)((a,s) =>
-        where(p2(a))
-        select(a, &(p1(a)), a.name.toUpperCase, s, (new Object {val t = s.map(_.title)}: Object))
-        on(a.id === s.get.artistId)
-      )
-
-    assert(joinPredicates(pred2, pred1).toList.length == 2)
-
-    val unionJoin =
-      joinPredicates(pred2, pred1) union joinPredicates(pred3, pred1)
-
-    assert(unionJoin.toList.length == 4)
-
-    def compareCounts[A](q: Query[A]): Unit = {
-      val qc = from(q)(_ => compute(count))
-      assert(qc.toList.head == q.toList.length)
-    }
-
-    compareCounts(unionJoin)
   }
 }
