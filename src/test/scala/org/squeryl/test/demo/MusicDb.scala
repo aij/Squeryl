@@ -322,10 +322,25 @@ abstract class KickTheTires extends SchemaTester with RunTestsInsideTransaction 
 
     assert(combined.toList.length == 6)
 
-    def musicalPredicates(p1: Artist => LogicalBoolean, p2: Artist => LogicalBoolean) =
-      from(artists)(a =>
+    def joinPredicates(p1: Artist => LogicalBoolean, p2: Artist => LogicalBoolean) =
+      join(artists, songs.leftOuter)((a,s) =>
         where(p2(a))
-        select(a, &(p1(a)), a.name)
+        select(a, &(p1(a)), a.name.toUpperCase, s, (new Object {val t = s.map(_.title)}: Object))
+        on(a.id === s.get.artistId)
       )
+
+    assert(joinPredicates(pred2, pred1).toList.length == 2)
+
+    val unionJoin =
+      joinPredicates(pred2, pred1) union joinPredicates(pred3, pred1)
+
+    assert(unionJoin.toList.length == 4)
+
+    def compareCounts[A](q: Query[A]): Unit = {
+      val qc = from(q)(_ => compute(count))
+      assert(qc.toList.head == q.toList.length)
+    }
+
+    compareCounts(unionJoin)
   }
 }
