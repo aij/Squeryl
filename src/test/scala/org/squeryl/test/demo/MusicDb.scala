@@ -224,11 +224,12 @@ abstract class KickTheTires extends SchemaTester with RunTestsInsideTransaction 
     // Shared subquery with root query :
     val commonSubquery =
       from(songs)(s =>
-        select(s, &(true))
+        select(s, &(s.year - 1900))
       )
 
     def compareCounts[A](q: Query[A]): Unit = {
       val qc = from(q)(_ => compute(count))
+      //q.toList.length
       assert(qc.toList.head.measures == q.toList.length)
     }
 
