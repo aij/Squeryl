@@ -2,13 +2,13 @@ package org.squeryl.test.schooldb
 
 /*******************************************************************************
  * Copyright 2010 Maxime Lévesque
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -39,21 +39,21 @@ object AppSpecificTypeMode extends org.squeryl.PrimitiveTypeMode {
     def isPersisted(a:Student) = a.id > 0
     def idPropertyName = "id"
   }
-  
+
   implicit object schoolDbObjectKED extends KeyedEntityDef[SchoolDbObject,Int] {
     def getId(a:SchoolDbObject) = a.id
     def isPersisted(a:SchoolDbObject) = a.id > 0
     def idPropertyName = "id"
   }
-  
-  
+
+
   implicit object courseKED extends KeyedEntityDef[Course,Int] {
     def getId(a:Course) = a.id
     def isPersisted(a:Course) = a.id > 0
     def idPropertyName = "id"
     override def optimisticCounterPropertyName = Some("occVersionNumber")
   }
-  
+
   implicit object course2KED extends KeyedEntityDef[Course2,Int] {
     def getId(a:Course2) = a.id
     def isPersisted(a:Course2) = a.id > 0
@@ -80,7 +80,7 @@ trait Person
 
 class Student(var name: String, var lastName: String, var age: Option[Int], var gender: Int, var addressId: Option[Int], var isMultilingual: Option[Boolean])
   extends Person {
-  
+
   val id: Int = 0
 
   override def toString = "Student:" + id + ":" + name
@@ -95,9 +95,9 @@ case class Course(var name: String, var startDate: Date, var finalExamDate: Opti
   var meaninglessLong: Long,
   @Column("meaninglessLongOption")
   var meaninglessLongOption: Option[Long], val confirmed: Boolean) {
-  
+
   val id: Int = 0
-  
+
   val occVersionNumber: Int = 0
 
   def occVersionNumberZ = occVersionNumber
@@ -126,7 +126,7 @@ class CourseAssignment(var courseId: Int, var professorId: Long)
 class Address(var streetName: String, var numberz:Int, var numberSuffix:Option[String], var appNumber: Option[Int], var appNumberSuffix: Option[String])
   extends SchoolDbObject {
 
-  override def toString = "rue " + streetName 
+  override def toString = "rue " + streetName
 }
 
 class Professor(var lastName: String, var yearlySalary: Float, var weight: Option[Float], var yearlySalaryBD: BigDecimal, var weightInBD: Option[BigDecimal]) extends KeyedEntity[Long] with Person {
@@ -188,7 +188,7 @@ class StringKeyedEntity(val id: String, val tempo: Tempo.Tempo) extends KeyedEnt
 class SchoolDb extends Schema {
 
 
-  
+
   val courses2 = table[Course2]
 
 
@@ -216,9 +216,9 @@ class SchoolDb extends Schema {
     table[StringKeyedEntity]
 
   val professors = table[Professor]
-  
+
   val students = table[Student] //(implicitly[Manifest[Student]],personKEDO)
-  
+
   val addresses = table[Address]("AddressexageratelyLongName")
 
   val courses = table[Course]
@@ -233,7 +233,7 @@ class SchoolDb extends Schema {
 
   val postalCodes = table[PostalCode]
 
-  
+
   val tests = table[YieldInspectionTest]
   val others = table[YieldInspectionAnother]
 
@@ -258,7 +258,7 @@ class SchoolDb extends Schema {
   on(professors)(p => declare(
     p.lastName is(named("theLastName"))
   ))
-  
+
   on(professors)(p => declare(
     p.yearlySalary is(dbType("real"))
   ))
@@ -270,7 +270,7 @@ class SchoolDb extends Schema {
   on(schools)(s => declare(
     s.transientField is transient
   ))
-  
+
   // disable the override, since the above is good for Oracle only, this is not a usage demo, but
   // a necessary hack to test the dbType override mechanism and still allow the test suite can run on all database :
   override def columnTypeFor(fieldMetaData: FieldMetaData, owner: Table[_])  =
@@ -314,7 +314,7 @@ class SchoolDb extends Schema {
 
     beforeInsert[KeyedEntity[_]]
       call(beforeInsertsOfKeyedEntity.append(_)),
-      
+
     afterSelect[Student]
       call(afterSelectsOfStudent.append(_)),
 
@@ -500,13 +500,13 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
 
     val q =
       from(courses)(c =>
-        where (          
+        where (
           //new org.squeryl.dsl.ast.BinaryOperatorNodeLogicalBoolean(1, from(courseSubscriptions)(cs => compute(countDistinct(cs.courseId))).ast, "=")
           1 === from(courseSubscriptions)(cs => where(c.id === cs.courseId) compute(countDistinct(cs.courseId)))
         )
         select(c)
      ).toList
-     
+
      assert(q.size == 4)
   }
 
@@ -582,15 +582,15 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
 
   test("update to null") {
     val testInstance = sharedTestInstance; import testInstance._
-          
+
     val rejan = students.insert(new Student("Réjean", "Plourde", Some(24), 2, Some(oneHutchissonStreet.id), Some(true)))
-    
+
     update(students)(p =>
       where(p.id === rejan.id)
       set(p.isMultilingual := None)
     )
   }
-  
+
   test("DeepNest2"){
     val testInstance = sharedTestInstance; import testInstance._
 
@@ -607,10 +607,10 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
 
   test("assertColumnNameChangeWithDeclareSyntax") {
     val st = Session.currentSession.connection.createStatement()
-    val r = st.execute("select the_Last_Name from t_professor")                                                        
+    val r = st.execute("select the_Last_Name from t_professor")
     // this should not blow up...
   }
-  
+
   test("OptionStringInWhereClause"){
     val testInstance = sharedTestInstance; import testInstance._
 
@@ -666,7 +666,7 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
    * POC for raw SQL "facilities"
    */
   class RawQuery(query: String, args: Seq[Any]) {
-    
+
     private def prep = {
       // We'll pretend we don't care about connection, statement, resultSet leaks for now ...
       val s = Session.currentSession
@@ -676,19 +676,19 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
         st.setObject(z._2 + 1, z._1.asInstanceOf[AnyRef])
       st
     }
-    
+
     import org.squeryl.internals._
     import org.squeryl.dsl.ast._
-    
+
     def toSeq[A](t: Table[A]) = {
       val st = prep
       val resultSet = st.executeQuery
       val res = new scala.collection.mutable.ArrayBuffer[A]
-      
-      // now for mapping a query to Schema objects : 
+
+      // now for mapping a query to Schema objects :
       val rm = new ResultSetMapper
-      
-      for((fmd, i) <- t.posoMetaData.fieldsMetaData.zipWithIndex) { 
+
+      for((fmd, i) <- t.posoMetaData.fieldsMetaData.zipWithIndex) {
         val jdbcIndex = i + 1
         val fse = new FieldSelectElement(null, fmd, rm)
         fse.prepareColumnMapper(jdbcIndex)
@@ -701,18 +701,18 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
       }
       res.toSeq
     }
-    
-    def toTuple[A1,A2]()(implicit f1 : TypedExpressionFactory[A1,_], f2 : TypedExpressionFactory[A2,_]) = { 
-      
+
+    def toTuple[A1,A2]()(implicit f1 : TypedExpressionFactory[A1,_], f2 : TypedExpressionFactory[A2,_]) = {
+
       val st = prep
       val rs = st.executeQuery
-      
+
       if(!rs.next)
         sys.error("consider using toOptionTuple[....]")
 
-      //let's pretend there was no shame to be had for such grotesque cheating : 
+      //let's pretend there was no shame to be had for such grotesque cheating :
       val m1 = f1.thisMapper.asInstanceOf[PrimitiveJdbcMapper[A1]]
-      val m2 = f2.thisMapper.asInstanceOf[PrimitiveJdbcMapper[A2]]      
+      val m2 = f2.thisMapper.asInstanceOf[PrimitiveJdbcMapper[A2]]
       // in fact, there should be a wrapper type of TypedExpressionFactory only for primitive types
       // for use in such toTuple mapping ...
 
@@ -720,12 +720,12 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
        m2.convertFromJdbc(m2.extractNativeJdbcValue(rs, 2)))
     }
   }
-  
+
   def query(q: String, a: Any*) = new RawQuery(q, a)
 /*
   test("raw sql") {
 
-    val r = 
+    val r =
       query("select s.* from student s where s.name = ? and s.age = ?",
             "Xiao", 24).
         toSeq(students)
@@ -733,17 +733,17 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
     r.map(_.name) match {
       case Seq("Xiao") => passed('rawQueryPOC)
       case a:Any => sys.error("Failed: " + a)
-    }    
+    }
   }
-  
+
   test("raw sql to Tuple") {
-    
-    val (name, age) = 
+
+    val (name, age) =
       query("select s.name, s.age from student s where s.name = 'Xiao' and s.age = 24").
         toTuple[String,Int]
-    
+
     assert(name == "Xiao")
-        
+
     assert(age == 24)
   }
 */
@@ -759,20 +759,20 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
 
     passed('testInOpWithStringList)
   }
-  
+
   test("transient annotation") {
-    
+
 
     val s = schools.insert(new School(123,"EB123",0, "transient !"))
-    
+
     val s2 = schools.lookup(s.id).get
-    
+
     assert(s.id == s2.id)
-    
+
     assert(s2.transientField != "transient !")
-    
+
   }
-  
+
   test("lifecycleCallbacks") {
 
 
@@ -882,7 +882,7 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
       )
 
     validateQuery('testLikeOperator, q, identity[Int], List(gaitan.id,georgi.id,gontran.id))
-    
+
   }
 
   test("SingleOption"){
@@ -893,7 +893,7 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
         select(s.id)
         orderBy(s.name)
       )
-      
+
     val shouldBeRight =
       try {
         Left(q.singleOption)
@@ -902,7 +902,7 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
         case e: Exception => Right(e)
       }
 
-    assert(shouldBeRight.isRight, "singleOption did not throw an exception when it should have") 
+    assert(shouldBeRight.isRight, "singleOption did not throw an exception when it should have")
 
     val q2 =
       from(students)(s=>
@@ -910,11 +910,11 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
         select(s.id)
         orderBy(s.name)
       )
-    
+
     q2.singleOption should equal(Some(gontran.id))
-  }  
-    
-  test("isNull and === None comparison"){  
+  }
+
+  test("isNull and === None comparison"){
     val z1 =
       from(students)(s=>
         where({
@@ -923,7 +923,7 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
         })
         select(s.id)
       )
-    
+
     val z2 =
       from(students)(s=>
         where({
@@ -932,11 +932,11 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
           })
         select(s.id)
       )
-                
+
       val r1 = z1.toSet
       val r2 = z2.toSet
-      
-    assertEquals(r1, r2, "result of isNull and === None differ")      
+
+    assertEquals(r1, r2, "result of isNull and === None differ")
   }
 
 //  test("NotOperator"){
@@ -1449,10 +1449,10 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
   }
 
   test("BatchUpdate1") {
-    
+
     val testInstance = sharedTestInstance; import testInstance._
     import schema._
-        
+
     addresses.insert(List(
       new Address("St-Dominique",14, None,None,None),
       new Address("St-Urbain",23, None,None,None),
@@ -1481,27 +1481,27 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
 
     passed('testBatchUpdate1)
   }
-  
+
   test("BatchUpdateAndInsert2") {
-    
+
     val testInstance = sharedTestInstance; import testInstance._
     import schema._
-    
-    
+
+
     courses2.insert(
         Seq(Course2(0, "Programming 101", false, 0),
             Course2(0, "Programming 102", false, 0)))
-    
+
     val c = courses2.where(_.name like "Programming %")
     val c0 = c.toList
-    
+
     assert(c0.size == 2)
     assert(c0.filter(_.confirmed).size == 0)
 
     courses2.update(c0.map(_.copy(confirmed = true)))
-    
+
     assert(c.filter(_.confirmed).size == 2)
-    
+
     passed('BatchUpdateAndInsert2)
   }
 
@@ -1615,7 +1615,7 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
 
     passed('testInWithCompute)
   }
-  
+
   test("NewJoin1") {
     val testInstance = sharedTestInstance; import testInstance._
       val q =
@@ -1662,7 +1662,7 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
 
 
   test("#62 CompositeKey with Option members generate sql with = null instead of is null")  {
-    
+
     val testInstance = sharedTestInstance; import testInstance._
     // this should not blow up :
     val q = students.where(_.dummyKey === (None: Option[Int], None: Option[Int]))
@@ -1771,7 +1771,7 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
 
     passed('testNewOuterJoin3 )
   }
-  
+
   test("TestYieldInspectionLeakViaCGLIB") {
       tests.insert(List(YieldInspectionTest(1, 100), YieldInspectionTest(1,500), YieldInspectionTest(2,600)))
       others.insert(List(YieldInspectionAnother(1, "One", 1), YieldInspectionAnother(2, "Two", 2)))
@@ -1790,7 +1790,7 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
     wrappedTypes.insert(WrappedType(0, MyLong(1), Some(MyLong(2))))
 
     val q = from(wrappedTypes)(w =>
-      where(w.myLong === 1 and w.myOptLong === 2)
+      where(w.myLong === MyLong(1L) and w.myOptLong === MyLong(2L))
       select(w)
     ).toList
 
@@ -1896,7 +1896,7 @@ abstract class SchoolDbTestRun extends SchoolDbTestBase {
     passed('selectFromExists)
 
   }
-  
+
   test("UpdateSetAll") {
     val testInstance = sharedTestInstance; import testInstance._
     update(students)(s => setAll(s.age := Some(30)))
@@ -1966,7 +1966,7 @@ abstract class Issue14 extends DbTestBase with QueryTester {
         val seqName = (new OracleAdapter).createSequenceName(Issue14Schema.professors.posoMetaData.findFieldMetaDataForProperty("id").get)
         try {stmt.execute("create sequence " + seqName)}
         catch {
-          case e:SQLException => {} 
+          case e:SQLException => {}
         }
       }
       transaction {

@@ -16,14 +16,14 @@ object SquerylBuild extends Build {
     settings = Project.defaultSettings /* ++ lsSettings */ ++ Seq(
       description := "A Scala ORM and DSL for talking with Databases using minimum verbosity and maximum type safety",
       organization := "gov.wicourts.org.squeryl",
-      version := "0.9.6-ccap35",
+      version := "0.9.6-ccap35-SNAPSHOT",
       javacOptions := Seq("-source", "1.6", "-target", "1.6"),
       /*
   	  version <<= version { v => //only release *if* -Drelease=true is passed to JVM
   	  	val release = Option(System.getProperty("release")) == Some("true")
   	  	if(release)
-  	  		v 
-  	  	else {	
+  	  		v
+  	  	else {
   	  		val suffix = Option(System.getProperty("suffix"))
   	  		val i = (v.indexOf('-'), v.length) match {
   	  		  case (x, l) if x < 0 => l
@@ -81,7 +81,7 @@ object SquerylBuild extends Build {
       credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
       publishArtifact in Test := false,
       pomIncludeRepository := { _ => false },
-      //below is for lsync, run "ls-write-version", commit to github, then run "lsync" 
+      //below is for lsync, run "ls-write-version", commit to github, then run "lsync"
       /*
 			  (LsKeys.tags in LsKeys.lsync) := Seq("sql", "orm", "query", "database", "db", "dsl"),
 			  (LsKeys.docsUrl in LsKeys.lsync) := Some(new URL("http://squeryl.org/api/")),

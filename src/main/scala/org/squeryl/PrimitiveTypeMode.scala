@@ -1,12 +1,12 @@
 /*******************************************************************************
  * Copyright 2010 Maxime Lévesque
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -34,22 +34,24 @@ object PrimitiveTypeMode extends PrimitiveTypeMode
 private [squeryl] object InternalFieldMapper extends PrimitiveTypeMode
 
 trait PrimitiveTypeMode extends QueryDsl with FieldMapper {
-  def taggedTEF[A, Q: NotNothing, T](implicit factory: TypedExpressionFactory[A, T]): TypedExpressionFactory[A @@ Q, T] =
-    Tag.subst[A, ({ type L[a] = TypedExpressionFactory[a, T]})#L, Q](factory)
+  implicit def scalazTaggedTEF[A, Q: NotNothing, T](
+    implicit factory: TypedExpressionFactory[A, T]
+  ): TypedExpressionFactory[A @@ Q, TScalazTagged[A, Q, T]] =
+    factory.asInstanceOf[TypedExpressionFactory[A @@ Q, TScalazTagged[A, Q, T]]]
 
-  def taggedToTE[A, Q, T](
+  implicit def scalazTaggedOptionTEF[A, Q: NotNothing, T](
+    implicit factory: TypedExpressionFactory[Option[A], T]
+  ): TypedExpressionFactory[Option[A @@ Q], TScalazTagged[A, Q, T]] =
+    factory.asInstanceOf[TypedExpressionFactory[Option[A @@ Q], TScalazTagged[A, Q, T]]]
+
+  implicit def scalazTaggedToTE[A, Q, T](
     a: A @@ Q
   )(
-    implicit factory: TypedExpressionFactory[A @@ Q, T]
-  ): TypedExpression[A @@ Q, T] =
+    implicit factory: TypedExpressionFactory[A @@ Q, TScalazTagged[A, Q, T]]
+  ): TypedExpression[A @@ Q, TScalazTagged[A, Q, T]] =
     factory.create(a)
 
-  def taggedOptionTEF[A, Q: NotNothing, T](
-    implicit factory: TypedExpressionFactory[Option[A], T]
-  ): TypedExpressionFactory[Option[A @@ Q], T] =
-    Tag.subst[A, ({ type L[a] = TypedExpressionFactory[Option[a], T]})#L, Q](factory)
-
-  def taggedOptionToTE[A, Q, T](
+  implicit def scalazTaggedOptionToTE[A, Q, T](
     a: Option[A @@ Q]
   )(
     implicit factory: TypedExpressionFactory[Option[A @@ Q], T]
@@ -69,25 +71,26 @@ trait PrimitiveTypeMode extends QueryDsl with FieldMapper {
   implicit val intArrayTEF = PrimitiveTypeSupport.intArrayTEF
   implicit val longArrayTEF = PrimitiveTypeSupport.longArrayTEF
   implicit val stringArrayTEF = PrimitiveTypeSupport.stringArrayTEF
-  
-  // =========================== Numerical Integral =========================== 
+
+  // =========================== Numerical Integral ===========================
   implicit val byteTEF = PrimitiveTypeSupport.byteTEF
   implicit val optionByteTEF = PrimitiveTypeSupport.optionByteTEF
   implicit val intTEF = PrimitiveTypeSupport.intTEF
   implicit val optionIntTEF = PrimitiveTypeSupport.optionIntTEF
   implicit val longTEF = PrimitiveTypeSupport.longTEF
   implicit val optionLongTEF = PrimitiveTypeSupport.optionLongTEF
-  
-  // =========================== Numerical Floating Point ===========================   
+
+  // =========================== Numerical Floating Point ===========================
   implicit val floatTEF = PrimitiveTypeSupport.floatTEF
   implicit val optionFloatTEF = PrimitiveTypeSupport.optionFloatTEF
   implicit val doubleTEF = PrimitiveTypeSupport.doubleTEF
-  implicit val optionDoubleTEF = PrimitiveTypeSupport.optionDoubleTEF  
+  implicit val optionDoubleTEF = PrimitiveTypeSupport.optionDoubleTEF
   implicit val bigDecimalTEF = PrimitiveTypeSupport.bigDecimalTEF
   implicit val optionBigDecimalTEF = PrimitiveTypeSupport.optionBigDecimalTEF
-  
-  
-  implicit def stringToTE(s: String) = stringTEF.create(s)  
+
+  // =========================== Scalaz Tagged Types ===========================
+
+  implicit def stringToTE(s: String) = stringTEF.create(s)
   implicit def optionStringToTE(s: Option[String]) = optionStringTEF.create(s)
 
   implicit def dateToTE(s: Date) = dateTEF.create(s)
@@ -107,11 +110,11 @@ trait PrimitiveTypeMode extends QueryDsl with FieldMapper {
 
   implicit def enumValueToTE[A <: Enumeration#Value](e: A) =
     PrimitiveTypeSupport.enumValueTEF(e).create(e)
-    
-  implicit def optionEnumcValueToTE[A <: Enumeration#Value](e: Option[A]) = 
+
+  implicit def optionEnumcValueToTE[A <: Enumeration#Value](e: Option[A]) =
     PrimitiveTypeSupport.optionEnumValueTEF(e).create(e)
-  
-  implicit def byteToTE(f: Byte) = byteTEF.create(f)    
+
+  implicit def byteToTE(f: Byte) = byteTEF.create(f)
   implicit def optionByteToTE(f: Option[Byte]) = optionByteTEF.create(f)
 
   implicit def intToTE(f: Int) = intTEF.create(f)
@@ -128,105 +131,15 @@ trait PrimitiveTypeMode extends QueryDsl with FieldMapper {
 
   implicit def bigDecimalToTE(f: BigDecimal) = bigDecimalTEF.create(f)
   implicit def optionBigDecimalToTE(f: Option[BigDecimal]) = optionBigDecimalTEF.create(f)
-  
+
   implicit def doubleArrayToTE(f : Array[Double]) = doubleArrayTEF.create(f)
   implicit def intArrayToTE(f : Array[Int]) = intArrayTEF.create(f)
   implicit def longArrayToTE(f : Array[Long]) = longArrayTEF.create(f)
   implicit def stringArrayToTE(f: Array[String]) = stringArrayTEF.create(f)
-  
+
 
   implicit def logicalBooleanToTE(l: LogicalBoolean) =
     PrimitiveTypeSupport.booleanTEF.convert(l)
-
-  // =========================== Tagged Non Numerical ===========================
-  implicit def stringTaggedTEF[Q: NotNothing]: TypedExpressionFactory[String @@ Q, TString] = taggedTEF
-  implicit def optionStringTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Option[String @@ Q], TOptionString] = taggedOptionTEF
-  implicit def dateTaggedTEF[Q: NotNothing]: TypedExpressionFactory[java.util.Date @@ Q, TDate] = taggedTEF
-  implicit def optionDateTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Option[java.util.Date @@ Q], TOptionDate] = taggedOptionTEF
-  implicit def sqlDateTaggedTEF[Q: NotNothing]: TypedExpressionFactory[java.sql.Date @@ Q, TDate] = taggedTEF
-  implicit def optionSqlDateTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Option[java.sql.Date @@ Q], TOptionDate] = taggedOptionTEF
-  implicit def timestampTaggedTEF[Q: NotNothing]: TypedExpressionFactory[java.sql.Timestamp @@ Q, TTimestamp] = taggedTEF
-  implicit def optionTimestampTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Option[java.sql.Timestamp @@ Q], TOptionTimestamp] = taggedOptionTEF
-
-  implicit def doubleArrayTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Array[Double] @@ Q, TDoubleArray] = taggedTEF
-  implicit def intArrayTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Array[Int] @@ Q, TIntArray] = taggedTEF
-  implicit def longArrayTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Array[Long] @@ Q, TLongArray] = taggedTEF
-  implicit def stringArrayTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Array[String] @@ Q, TStringArray] = taggedTEF
-
-  // =========================== Tagged Numerical Integral ===========================
-  implicit def byteTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Byte @@ Q, TByte] = taggedTEF
-  implicit def optionByteTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Option[Byte @@ Q], TOptionByte] = taggedOptionTEF
-  implicit def intTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Int @@ Q, TInt] = taggedTEF
-  implicit def optionIntTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Option[Int @@ Q], TOptionInt] = taggedOptionTEF
-  implicit def longTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Long @@ Q, TLong] = taggedTEF
-  implicit def optionLongTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Option[Long @@ Q], TOptionLong] = taggedOptionTEF
-
-  // =========================== Tagged Numerical Floating Point ===========================
-  implicit def floatTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Float @@ Q, TFloat] = taggedTEF
-  implicit def optionFloatTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Option[Float @@ Q], TOptionFloat] = taggedOptionTEF
-  implicit def doubleTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Double @@ Q, TDouble] = taggedTEF
-  implicit def optionDoubleTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Option[Double @@ Q], TOptionDouble] = taggedOptionTEF
-  implicit def bigDecimalTaggedTEF[Q: NotNothing]: TypedExpressionFactory[BigDecimal @@ Q, TBigDecimal] = taggedTEF
-  implicit def optionBigDecimalTaggedTEF[Q: NotNothing]: TypedExpressionFactory[Option[BigDecimal @@ Q], TOptionBigDecimal] = taggedOptionTEF
-
-  implicit def stringTaggedToTE[Q: NotNothing](s: String @@ Q): TypedExpression[String @@ Q, TString] = stringTaggedTEF.create(s)
-  implicit def optionStringTaggedToTE[Q: NotNothing](s: Option[String @@ Q]): TypedExpression[Option[String @@ Q], TOptionString]  = optionStringTaggedTEF.create(s)
-
-  implicit def dateToTaggedTE[Q: NotNothing](s: Date @@ Q): TypedExpression[Date @@ Q, TDate]  = dateTaggedTEF.create(s)
-  implicit def optionDateToTaggedTE[Q: NotNothing](s: Option[Date @@ Q]): TypedExpression[Option[Date @@ Q], TOptionDate] = optionDateTaggedTEF.create(s)
-
-  implicit def timestampTaggedToTE[Q: NotNothing](s: Timestamp @@ Q): TypedExpression[Timestamp @@ Q, TTimestamp]  = timestampTaggedTEF.create(s)
-  implicit def optionTimestampTaggedToTE[Q: NotNothing](s: Option[Timestamp @@ Q]) = optionTimestampTaggedTEF.create(s)
-
-  implicit def booleanTaggedToTE[Q: NotNothing](s: Boolean @@ Q): TypedExpression[Boolean @@ Q, TBoolean] =
-    Tag.subst[Boolean, ({type L[a] = TypedExpression[a, TBoolean]})#L, Q](
-      PrimitiveTypeSupport.booleanTEF.create(Tag.unwrap(s))
-    )
-  implicit def optionBooleanTaggedToTE[Q: NotNothing](s: Option[Boolean @@ Q]): TypedExpression[Option[Boolean @@ Q], TOptionBoolean] =
-    Tag.subst[Boolean, ({type L[a] = TypedExpression[Option[a], TOptionBoolean]})#L, Q](
-      PrimitiveTypeSupport.optionBooleanTEF.create(Tag.unsubst(s))
-    )
-
-  implicit def uuidTaggedToTE[Q: NotNothing](s: UUID @@ Q): TypedExpression[UUID @@ Q, TUUID] =
-    Tag.subst[UUID, ({type L[a] = TypedExpression[a, TUUID]})#L, Q](
-      PrimitiveTypeSupport.uuidTEF.create(Tag.unwrap(s))
-    )
-  implicit def optionUUIDTaggedToTE[Q: NotNothing](s: Option[UUID @@ Q]): TypedExpression[Option[UUID @@ Q], TOptionUUID] =
-    Tag.subst[UUID, ({type L[a] = TypedExpression[Option[a], TOptionUUID]})#L, Q](
-      PrimitiveTypeSupport.optionUUIDTEF.create(Tag.unsubst(s))
-    )
-
-  implicit def binaryTaggedToTE[Q: NotNothing](s: Array[Byte] @@ Q): TypedExpression[Array[Byte] @@ Q, TByteArray] =
-    Tag.subst[Array[Byte], ({type L[a] = TypedExpression[a, TByteArray]})#L, Q](
-      PrimitiveTypeSupport.binaryTEF.create(Tag.unwrap(s))
-    )
-  implicit def optionByteArrayTaggedToTE[Q: NotNothing](s: Option[Array[Byte] @@ Q]): TypedExpression[Option[Array[Byte] @@ Q], TOptionByteArray] =
-    Tag.subst[Array[Byte], ({type L[a] = TypedExpression[Option[a], TOptionByteArray]})#L, Q](
-      PrimitiveTypeSupport.optionByteArrayTEF.create(Tag.unsubst(s))
-    )
-
-  implicit def byteTaggedToTE[Q: NotNothing](f: Byte @@ Q): TypedExpression[Byte @@ Q, TByte]  = byteTaggedTEF.create(f)
-  implicit def optionByteTaggedToTE[Q: NotNothing](f: Option[Byte @@ Q]): TypedExpression[Option[Byte @@ Q], TOptionByte]  = optionByteTaggedTEF.create(f)
-
-  implicit def intTaggedToTE[Q: NotNothing](f: Int @@ Q): TypedExpression[Int @@ Q, TInt]  = intTaggedTEF.create(f)
-  implicit def optionIntTaggedToTE[Q: NotNothing](f: Option[Int @@ Q]): TypedExpression[Option[Int @@ Q], TOptionInt]  = optionIntTaggedTEF.create(f)
-
-  implicit def longTaggedToTE[Q: NotNothing](f: Long @@ Q): TypedExpression[Long @@ Q, TLong]  = longTaggedTEF.create(f)
-  implicit def optionLongTaggedToTE[Q: NotNothing](f: Option[Long @@ Q]): TypedExpression[Option[Long @@ Q], TOptionLong]  = optionLongTaggedTEF.create(f)
-
-  implicit def floatTaggedToTE[Q: NotNothing](f: Float @@ Q): TypedExpression[Float @@ Q, TFloat]  = floatTaggedTEF.create(f)
-  implicit def optionFloatTaggedToTE[Q: NotNothing](f: Option[Float @@ Q]): TypedExpression[Option[Float @@ Q], TOptionFloat]  = optionFloatTaggedTEF.create(f)
-
-  implicit def doubleTaggedToTE[Q: NotNothing](f: Double @@ Q): TypedExpression[Double @@ Q, TDouble]  = doubleTaggedTEF.create(f)
-  implicit def optionDoubleTaggedToTE[Q: NotNothing](f: Option[Double @@ Q]): TypedExpression[Option[Double @@ Q], TOptionDouble]  = optionDoubleTaggedTEF.create(f)
-
-  implicit def bigDecimalTaggedToTE[Q: NotNothing](f: BigDecimal @@ Q): TypedExpression[BigDecimal @@ Q, TBigDecimal]  = bigDecimalTaggedTEF.create(f)
-  implicit def optionBigDecimalTaggedToTE[Q: NotNothing](f: Option[BigDecimal @@ Q]): TypedExpression[Option[BigDecimal @@ Q], TOptionBigDecimal]  = optionBigDecimalTaggedTEF.create(f)
-
-  implicit def doubleArrayTaggedToTE[Q: NotNothing](f : Array[Double] @@ Q): TypedExpression[Array[Double] @@ Q, TDoubleArray]  = doubleArrayTaggedTEF.create(f)
-  implicit def intArrayTaggedToTE[Q: NotNothing](f : Array[Int] @@ Q): TypedExpression[Array[Int] @@ Q, TIntArray]  = intArrayTaggedTEF.create(f)
-  implicit def longArrayTaggedToTE[Q: NotNothing](f : Array[Long] @@ Q): TypedExpression[Array[Long] @@ Q, TLongArray]  = longArrayTaggedTEF.create(f)
-  implicit def stringArrayTaggedToTE[Q: NotNothing](f: Array[String] @@ Q): TypedExpression[Array[String] @@ Q, TStringArray]  = stringArrayTaggedTEF.create(f)
 
 
   implicit def queryStringToTE(q: Query[String]) =
