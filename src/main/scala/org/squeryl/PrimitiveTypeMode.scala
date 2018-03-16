@@ -34,7 +34,7 @@ object PrimitiveTypeMode extends PrimitiveTypeMode
 private [squeryl] object InternalFieldMapper extends PrimitiveTypeMode
 
 trait PrimitiveTypeMode extends QueryDsl with FieldMapper {
-  implicit def scalazTaggedTEF[A, Q: NotNothing, T](
+  implicit def scalazTaggedTEF[A, Q: NotNothing, T <: TNonOption](
     implicit factory: TypedExpressionFactory[A, T]
   ): TypedExpressionFactory[A @@ Q, TScalazTagged[A, Q, T]] =
     factory.asInstanceOf[TypedExpressionFactory[A @@ Q, TScalazTagged[A, Q, T]]]
@@ -44,14 +44,14 @@ trait PrimitiveTypeMode extends QueryDsl with FieldMapper {
   ): TypedExpressionFactory[Option[A @@ Q], TScalazTagged[A, Q, T]] =
     factory.asInstanceOf[TypedExpressionFactory[Option[A @@ Q], TScalazTagged[A, Q, T]]]
 
-  implicit def scalazTaggedToTE[A, Q, T](
+  implicit def scalazTaggedToTE[A, Q: NotNothing, T <: TNonOption](
     a: A @@ Q
   )(
     implicit factory: TypedExpressionFactory[A @@ Q, TScalazTagged[A, Q, T]]
   ): TypedExpression[A @@ Q, TScalazTagged[A, Q, T]] =
     factory.create(a)
 
-  implicit def scalazTaggedOptionToTE[A, Q, T](
+  implicit def scalazTaggedOptionToTE[A, Q: NotNothing, T](
     a: Option[A @@ Q]
   )(
     implicit factory: TypedExpressionFactory[Option[A @@ Q], T]

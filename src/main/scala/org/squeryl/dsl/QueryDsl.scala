@@ -731,10 +731,10 @@ trait QueryDsl
 
   // Composite key syntactic sugar :
 
-  def compositeKey[A1,A2](a1: A1, a2: A2)(
+  def compositeKey[A1,A2,T1,T2](a1: A1, a2: A2)(
       implicit
-        ev1: A1 => TypedExpression[A1, _],
-        ev2: A2 => TypedExpression[A2, _]) =
+        ev1: A1 => TypedExpression[A1, T1],
+        ev2: A2 => TypedExpression[A2, T2]) =
     new CompositeKey2(a1, a2)
 
   def compositeKey[A1,A2,A3](a1: A1, a2: A2, a3: A3)(
